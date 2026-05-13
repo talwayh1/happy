@@ -15,6 +15,10 @@ on:
       - packages/happy-server/**
       - packages/happy-wire/**
       - .github/workflows/docker-happy-server.yml
+  # Nightly rebuild to pick up base image and dependency updates.
+  # GitHub schedules are UTC; 18:00 UTC = 02:00 Beijing time.
+  schedule:
+    - cron: "0 18 * * *"
   workflow_dispatch:
 
 permissions:
