@@ -38,7 +38,9 @@ COPY packages/happy-server ./packages/happy-server
 RUN pnpm --filter @slopus/happy-wire build
 RUN pnpm --filter happy-server build && cd packages/happy-server && npx prisma generate
 # Save generated Prisma client so runner doesn't need 67 MB prisma CLI
-RUN cp -r packages/happy-server/node_modules/.prisma /tmp/prisma-client
+# pnpm may hoist .prisma to root node_modules; -L dereferences any symlinks
+RUN cp -rL node_modules/.prisma /tmp/prisma-client 2>/dev/null || \
+    cp -rL packages/happy-server/node_modules/.prisma /tmp/prisma-client
 
 # Stage 3: runtime — uses pnpm deploy for clean production deps
 FROM node:20-slim AS runner
