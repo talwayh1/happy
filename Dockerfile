@@ -49,9 +49,17 @@ ENV NODE_ENV=production
 ENV DATA_DIR=/data
 ENV PGLITE_DIR=/data/pglite
 
+# Copy workspace metadata needed for pnpm prune
+COPY --from=builder /repo/package.json /repo/pnpm-lock.yaml /repo/pnpm-workspace.yaml /repo/.npmrc /repo/
+
+# Copy built packages and node_modules
 COPY --from=builder /repo/node_modules /repo/node_modules
 COPY --from=builder /repo/packages/happy-wire /repo/packages/happy-wire
 COPY --from=builder /repo/packages/happy-server /repo/packages/happy-server
+
+# Strip devDependencies: removes ~2.5GB of build-only packages (typescript, esbuild, vite, etc.)
+# tsx stays because it's a production dependency of happy-server
+RUN corepack enable && corepack prepare pnpm@10.11.0 --activate && pnpm prune --prod
 
 VOLUME /data
 EXPOSE 3005
