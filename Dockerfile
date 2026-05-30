@@ -27,7 +27,7 @@ COPY packages/happy-server/prisma packages/happy-server/prisma
 COPY packages/happy-cli/scripts packages/happy-cli/scripts
 COPY packages/happy-cli/tools packages/happy-cli/tools
 
-RUN SKIP_HAPPY_WIRE_BUILD=1 pnpm install --frozen-lockfile
+RUN SKIP_HAPPY_WIRE_BUILD=1 pnpm install
 
 # Stage 2: copy source and type-check
 FROM deps AS builder
@@ -37,13 +37,16 @@ COPY packages/happy-server ./packages/happy-server
 
 RUN pnpm --filter @slopus/happy-wire build
 RUN pnpm --filter happy-server build && cd packages/happy-server && npx prisma generate
+# Save generated Prisma client so runner doesn't need 67 MB prisma CLI
+RUN cp -r packages/happy-server/node_modules/.prisma /tmp/prisma-client
 
 # Stage 3: runtime — uses pnpm deploy for clean production deps
 FROM node:20-slim AS runner
 
 WORKDIR /repo
 
-RUN apt-get update && apt-get install -y ffmpeg curl && rm -rf /var/lib/apt/lists/*
+# Only curl needed at runtime (ffmpeg removed — 0 references in source, saves 637 MB)
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 
 ENV NODE_ENV=production
 ENV DATA_DIR=/data
@@ -56,7 +59,10 @@ COPY --from=builder /repo/packages/happy-server /repo/packages/happy-server
 
 # pnpm deploy creates a standalone directory with production deps only (~5-10s)
 RUN corepack enable && corepack prepare pnpm@10.11.0 --activate \
-    && pnpm --filter happy-server deploy --legacy --prod --ignore-scripts /app && cd /app && npx prisma generate
+    && pnpm --filter happy-server deploy --legacy --prod --ignore-scripts /app
+
+# Restore pre-generated Prisma client from builder (avoids 67 MB prisma CLI at runtime)
+COPY --from=builder /tmp/prisma-client /app/node_modules/.prisma
 
 VOLUME /data
 EXPOSE 3005
