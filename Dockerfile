@@ -38,7 +38,7 @@ COPY packages/happy-server ./packages/happy-server
 RUN pnpm --filter @slopus/happy-wire build
 RUN pnpm --filter happy-server build
 
-# Stage 3: runtime
+# Stage 3: runtime — uses pnpm deploy for clean production deps
 FROM node:20-slim AS runner
 
 WORKDIR /repo
@@ -49,24 +49,18 @@ ENV NODE_ENV=production
 ENV DATA_DIR=/data
 ENV PGLITE_DIR=/data/pglite
 
-# Copy workspace metadata needed for pnpm prune
+# Copy workspace metadata + built packages (needed by pnpm deploy)
 COPY --from=builder /repo/package.json /repo/pnpm-lock.yaml /repo/pnpm-workspace.yaml /repo/.npmrc /repo/
-
-# Copy built packages and node_modules
-COPY --from=builder /repo/node_modules /repo/node_modules
 COPY --from=builder /repo/packages/happy-wire /repo/packages/happy-wire
 COPY --from=builder /repo/packages/happy-server /repo/packages/happy-server
 
-# Strip devDependencies: removes ~2.5GB of build-only packages (typescript, esbuild, vite, etc.)
-# tsx stays because it's a production dependency of happy-server
-# Run prune per-package since pnpm prune doesn't support --filter
+# pnpm deploy creates a standalone directory with production deps only (~5-10s)
 RUN corepack enable && corepack prepare pnpm@10.11.0 --activate \
-    && cd packages/happy-server && pnpm prune --prod && cd /repo \
-    && cd packages/happy-wire && pnpm prune --prod && cd /repo
+    && pnpm --filter happy-server deploy --prod /app
 
 VOLUME /data
 EXPOSE 3005
 
-WORKDIR /repo/packages/happy-server
+WORKDIR /app
 
-CMD ["sh", "-c", "../../node_modules/.bin/tsx sources/standalone.ts migrate && exec ../../node_modules/.bin/tsx sources/standalone.ts serve"]
+CMD ["sh", "-c", "./node_modules/.bin/tsx sources/standalone.ts migrate && exec ./node_modules/.bin/tsx sources/standalone.ts serve"]
