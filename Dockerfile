@@ -59,7 +59,8 @@ COPY --from=builder /repo/packages/happy-server /repo/packages/happy-server
 
 # Strip devDependencies: removes ~2.5GB of build-only packages (typescript, esbuild, vite, etc.)
 # tsx stays because it's a production dependency of happy-server
-RUN corepack enable && corepack prepare pnpm@10.11.0 --activate && pnpm prune --prod
+# --filter restricts prune to only the packages present in runner stage
+RUN corepack enable && corepack prepare pnpm@10.11.0 --activate && pnpm --filter happy-server --filter @slopus/happy-wire prune --prod
 
 VOLUME /data
 EXPOSE 3005
