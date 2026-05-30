@@ -56,7 +56,7 @@ COPY --from=builder /repo/packages/happy-server /repo/packages/happy-server
 
 # pnpm deploy creates a standalone directory with production deps only (~5-10s)
 RUN corepack enable && corepack prepare pnpm@10.11.0 --activate \
-    && pnpm --filter happy-server deploy --legacy --prod --ignore-scripts /app
+    && pnpm --filter happy-server deploy --legacy --prod --ignore-scripts /app && cd /app && npx prisma generate
 
 VOLUME /data
 EXPOSE 3005
