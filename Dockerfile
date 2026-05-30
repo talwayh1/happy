@@ -60,8 +60,10 @@ COPY --from=builder /repo/packages/happy-wire /repo/packages/happy-wire
 COPY --from=builder /repo/packages/happy-server /repo/packages/happy-server
 
 # pnpm deploy creates a standalone directory with production deps only (~5-10s)
+# rm prisma CLI: @prisma/client's optional dep pulls it in despite being in devDeps
 RUN corepack enable && corepack prepare pnpm@10.11.0 --activate \
-    && pnpm --filter happy-server deploy --legacy --prod --ignore-scripts /app
+    && pnpm --filter happy-server deploy --legacy --prod --ignore-scripts /app \
+    && rm -rf /app/node_modules/prisma
 
 # Restore pre-generated Prisma client from builder (avoids 67 MB prisma CLI at runtime)
 COPY --from=builder /tmp/prisma-client /app/node_modules/.prisma
