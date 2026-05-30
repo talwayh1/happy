@@ -36,7 +36,7 @@ COPY packages/happy-wire ./packages/happy-wire
 COPY packages/happy-server ./packages/happy-server
 
 RUN pnpm --filter @slopus/happy-wire build
-RUN pnpm --filter happy-server build
+RUN pnpm --filter happy-server build && cd packages/happy-server && npx prisma generate
 
 # Stage 3: runtime — uses pnpm deploy for clean production deps
 FROM node:20-slim AS runner
@@ -56,7 +56,7 @@ COPY --from=builder /repo/packages/happy-server /repo/packages/happy-server
 
 # pnpm deploy creates a standalone directory with production deps only (~5-10s)
 RUN corepack enable && corepack prepare pnpm@10.11.0 --activate \
-    && pnpm --filter happy-server deploy --legacy --prod /app
+    && pnpm --filter happy-server deploy --legacy --prod --ignore-scripts /app
 
 VOLUME /data
 EXPOSE 3005
